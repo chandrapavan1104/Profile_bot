@@ -1,0 +1,11 @@
+__pycache__/
+.DS_Store
+*.pyc
+.env
+profile_bot_env/
+myenv/
+node_modules/
+frontend/dist/
+data_store/chroma.sqlite3
+data_store/chroma.sqlite3-wal
+data_store/chroma.sqlite3-shm
