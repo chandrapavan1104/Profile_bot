@@ -6,6 +6,7 @@ profile_bot_env/
 myenv/
 node_modules/
 frontend/dist/
+data_store/
 data_store/chroma.sqlite3
 data_store/chroma.sqlite3-wal
 data_store/chroma.sqlite3-shm

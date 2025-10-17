@@ -1,15 +1,8 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+// vite.config.js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  base: '/profile-bot-ui/',
   plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      "/ask": {
-        target: "http://localhost:8000",
-        changeOrigin: true
-      }
-    }
-  }
-});
+})

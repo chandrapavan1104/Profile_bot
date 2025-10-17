@@ -1,36 +1,47 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
-const defaultQuery = "Tell me about the project.";
+const defaultQuery = "Give a summary of your work experience.";
+
+const getAskEndpoint = () => {
+  const base = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  if (!base) {
+    return "/ask";
+  }
+
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  return `${normalizedBase}/ask`;
+};
 
 export default function App() {
   const [query, setQuery] = useState(defaultQuery);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const askEndpoint = useMemo(getAskEndpoint, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsLoading(true);
     setError("");
     setAnswer("");
-
     try {
-      const response = await fetch("http://localhost:8003/ask", {
+      const response = await fetch(askEndpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
       });
-
+    
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-
+    
       const data = await response.json();
-      setAnswer(data.response ?? "");
+      setAnswer(typeof data.response === "string" ? data.response : data.response?.result ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
+      console.error("Fetch failed:", err);
+      // 👇 fallback
+      setAnswer("⚠️ Backend isOffline");
+      setError("");
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +77,7 @@ export default function App() {
         {answer && (
           <section className="response">
             <h2>Response</h2>
-            <p>{answer}</p>
+            <p>{typeof answer === "string" ? answer : JSON.stringify(answer, null, 2)}</p>
           </section>
         )}
       </main>
