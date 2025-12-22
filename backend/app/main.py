@@ -56,8 +56,14 @@ CHROMA_PATH = Path(os.getenv("VECTOR_STORE_PATH", "/tmp/data_store")).resolve()
 VECTOR_STORE_GCS_URI = os.getenv("VECTOR_STORE_GCS_URI")
 
 
+class Message(BaseModel):
+    role: str
+    content: str
+
+
 class QueryRequest(BaseModel):
     query: str
+    messages: list[Message] | None = None
 
 
 def _download_vector_store():
@@ -116,10 +122,13 @@ def startup_event():
         timeout=30,  # Set timeout to fail fast
     )
 
-    # Optimized prompt - more concise for faster processing
+    # Prompt is kept simple; we inline chat history into the question text
     prompt_template = ChatPromptTemplate.from_messages(
         [
-            ("system", "{persona_instructions}\n\nContext:\n{context}"),
+            (
+                "system",
+                "{persona_instructions}\n\nContext:\n{context}",
+            ),
             ("human", "{question}"),
         ]
     ).partial(persona_instructions=persona_prompt.strip())
@@ -141,9 +150,25 @@ def ask(request: QueryRequest):
     Optimized endpoint for low-latency responses.
     Uses invoke instead of run for better performance.
     """
+    # Build chat history text from provided messages
+    history_text = "None"
+    if request.messages:
+        parts: list[str] = []
+        for msg in request.messages:
+            role = msg.role.lower()
+            prefix = "User" if role == "user" else "Assistant"
+            parts.append(f"{prefix}: {msg.content}")
+        history_text = "\n".join(parts) if parts else "None"
+
+    # Inline history into the question we send to the chain
+    combined_question = (
+        f"Conversation so far:\n{history_text}\n\n"
+        f"Current question:\n{request.query}"
+    )
+
     # Use invoke instead of run for better performance
     # invoke returns dict, run returns string directly
-    result = qa_chain.invoke({"query": request.query})
+    result = qa_chain.invoke({"query": combined_question})
     
     # Extract response from result dict
     if isinstance(result, dict):
@@ -164,7 +189,22 @@ async def ask_stream(request: QueryRequest):
         try:
             # Use the chain's streaming capability
             full_response = ""
-            async for chunk in qa_chain.astream({"query": request.query}):
+            # Build chat history
+            history_text = "None"
+            if request.messages:
+                parts: list[str] = []
+                for msg in request.messages:
+                    role = msg.role.lower()
+                    prefix = "User" if role == "user" else "Assistant"
+                    parts.append(f"{prefix}: {msg.content}")
+                history_text = "\n".join(parts) if parts else "None"
+
+            combined_question = (
+                f"Conversation so far:\n{history_text}\n\n"
+                f"Current question:\n{request.query}"
+            )
+
+            async for chunk in qa_chain.astream({"query": combined_question}):
                 if isinstance(chunk, dict):
                     text = chunk.get("result", chunk.get("answer", ""))
                 else:
