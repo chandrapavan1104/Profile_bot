@@ -4,7 +4,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from typing import AsyncGenerator
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
@@ -15,6 +17,24 @@ from google.cloud import storage
 from app.persona_prompt import persona_prompt
 
 load_dotenv()
+
+# Configure LangSmith tracing via environment variables
+# These should be set in your .env file or environment:
+# LANGSMITH_TRACING=true
+# LANGSMITH_API_KEY=your_api_key
+# LANGSMITH_PROJECT=profile_bot (optional)
+# LANGSMITH_ENDPOINT=https://api.smith.langchain.com (optional, defaults to this)
+
+# Set LangSmith environment variables if not already set
+if os.getenv("LANGSMITH_TRACING") is None:
+    os.environ["LANGSMITH_TRACING"] = "true"
+
+if os.getenv("LANGSMITH_ENDPOINT") is None:
+    os.environ["LANGSMITH_ENDPOINT"] = "https://api.smith.langchain.com"
+
+# Optional: Set project name if not already set
+if os.getenv("LANGSMITH_PROJECT") is None:
+    os.environ["LANGSMITH_PROJECT"] = "profile_bot"
 
 app = FastAPI()
 
@@ -81,16 +101,25 @@ def _download_vector_store():
 
 @app.on_event("startup")
 def startup_event():
-    global qa_chain
+    global qa_chain, llm, retriever
     _download_vector_store()
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     vectordb = Chroma(persist_directory=CHROMA_PATH.as_posix(), embedding_function=embeddings)
-    retriever = vectordb.as_retriever(search_kwargs={"k": 5})
-    llm = ChatOpenAI(temperature=0.2, model="gpt-4")
+    # Reduce k from 5 to 3 for faster retrieval and less context
+    retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+    # Use faster model: gpt-4o-mini is much faster than gpt-4 variants
+    # Alternative: "gpt-3.5-turbo" for even faster responses
+    llm = ChatOpenAI(
+        temperature=0.2,
+        model="gpt-4o-mini",  # Fastest GPT-4 class model
+        max_tokens=500,  # Limit response length for faster generation
+        timeout=30,  # Set timeout to fail fast
+    )
 
+    # Optimized prompt - more concise for faster processing
     prompt_template = ChatPromptTemplate.from_messages(
         [
-            ("system", "{persona_instructions}\n\nRelevant context:\n{context}"),
+            ("system", "{persona_instructions}\n\nContext:\n{context}"),
             ("human", "{question}"),
         ]
     ).partial(persona_instructions=persona_prompt.strip())
@@ -108,5 +137,47 @@ def startup_event():
 
 @app.post("/ask")
 def ask(request: QueryRequest):
-    response = qa_chain.run(request.query)
+    """
+    Optimized endpoint for low-latency responses.
+    Uses invoke instead of run for better performance.
+    """
+    # Use invoke instead of run for better performance
+    # invoke returns dict, run returns string directly
+    result = qa_chain.invoke({"query": request.query})
+    
+    # Extract response from result dict
+    if isinstance(result, dict):
+        response = result.get("result", result.get("answer", str(result)))
+    else:
+        response = str(result)
+    
     return {"response": response}
+
+
+@app.post("/ask/stream")
+async def ask_stream(request: QueryRequest):
+    """
+    Streaming endpoint for lower perceived latency.
+    Returns response chunks as they're generated.
+    """
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            # Use the chain's streaming capability
+            full_response = ""
+            async for chunk in qa_chain.astream({"query": request.query}):
+                if isinstance(chunk, dict):
+                    text = chunk.get("result", chunk.get("answer", ""))
+                else:
+                    text = str(chunk)
+                
+                if text and text != full_response:  # Only send new content
+                    new_content = text[len(full_response):]
+                    full_response = text
+                    if new_content:
+                        yield f"data: {new_content}\n\n"
+            
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: Error: {str(e)}\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
