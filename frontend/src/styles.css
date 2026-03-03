@@ -7,15 +7,25 @@
   color: #e2e8f0;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100%;
+  overflow: hidden;
 }
 
 .page {
-  max-width: 768px;
-  margin: 0 auto;
-  padding: 3rem 1.5rem 4rem;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 3rem clamp(1.5rem, 4vw, 4rem) 4rem;
+  overflow-y: auto;
 }
 
 .header {
@@ -114,9 +124,127 @@ body {
   font-size: 1.15rem;
 }
 
-.response p {
+.response-content {
   margin: 0;
-  white-space: pre-wrap;
+}
+
+.markdown-content {
+  line-height: 1.7;
+  color: #e2e8f0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.markdown-content h1 {
+  font-size: 1.75em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em;
+}
+
+.markdown-content h3 {
+  font-size: 1.25em;
+}
+
+.markdown-content p {
+  margin: 0.75em 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.75em 0;
+  padding-left: 2em;
+}
+
+.markdown-content li {
+  margin: 0.25em 0;
+}
+
+.markdown-content code {
+  background: rgba(15, 23, 42, 0.8);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #fbbf24;
+}
+
+.markdown-content pre {
+  background: rgba(15, 23, 42, 0.9);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1em 0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+  color: #e2e8f0;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid rgba(99, 102, 241, 0.5);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #cbd5e1;
+  font-style: italic;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content a {
+  color: #818cf8;
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 1.5em 0;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.5em;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: rgba(15, 23, 42, 0.6);
+  font-weight: 600;
 }
 
 @media (max-width: 600px) {

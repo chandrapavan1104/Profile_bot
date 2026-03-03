@@ -41,6 +41,8 @@ Set `DOCUMENTS_PATH` to a local folder if you want to ingest documents from disk
 docker build -f backend/Dockerfile -t profile-bot-api-local .
 docker run --rm \
   -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e GITHUB_USERNAME=your-github-handle \
+  -e GITHUB_TOKEN=$GITHUB_TOKEN \
   -e DOCUMENTS_PATH=gs://your-docs-bucket \
   -e VECTOR_STORE_PATH=/tmp/data_store \
   -e VECTOR_STORE_GCS_URI=gs://your-vector-store-bucket \
@@ -49,6 +51,10 @@ docker run --rm \
 ```
 
 The same script is executed by a scheduled Cloud Run job in production, ensuring the vector store stays up to date whenever documents change.
+
+## Optional GitHub context
+
+When `GITHUB_USERNAME` is set, the ingestion script pulls your GitHub bio, repos, profile README, contribution count, and language breakdown into the vector store. For contribution stats, set `GITHUB_TOKEN` (a GitHub personal access token with read access).
 
 ## Deploying your own version
 

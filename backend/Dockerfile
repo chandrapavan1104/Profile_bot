@@ -24,7 +24,8 @@ COPY docs ./docs
 ENV VECTOR_STORE_PATH=/tmp/data_store \
     DOCUMENTS_PATH=gs://profile_bot_docs \
     VECTOR_STORE_GCS_URI=gs://profile-bot-chroma \
-    PORT=8080
+    PORT=8080 
+
 
 # Create vector store dir
 RUN mkdir -p /tmp/data_store

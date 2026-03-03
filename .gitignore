@@ -2,6 +2,14 @@ __pycache__/
 .DS_Store
 *.pyc
 .env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+mcp.json
+*.pem
+*.key
 profile_bot_env/
 myenv/
 node_modules/
@@ -10,3 +18,4 @@ data_store/
 data_store/chroma.sqlite3
 data_store/chroma.sqlite3-wal
 data_store/chroma.sqlite3-shm
+deploy-cloudrun.sh

@@ -6,7 +6,7 @@ Deploy the Profile Bot backend to Google Cloud Run. The React UI is built separa
 
 - Google Cloud project (`profilebot-474605`) with Cloud Run, Cloud Build, Artifact Registry, and Cloud Storage APIs enabled.
 - `gcloud` CLI authenticated against the project.
-- Artifact Registry Docker repository (`profile-bot`) in region `us-west2`.
+- Artifact Registry Docker repository (`profile-bot`) in region `us-central1`.
 - Cloud Storage buckets:
   - `profile_bot_docs` for source documents (Markdown files already uploaded).
   - `profile-bot-chroma` for the persistent Chroma vector store (ingestion uploads here; backend downloads on startup).
@@ -19,9 +19,9 @@ Deploy the Profile Bot backend to Google Cloud Run. The React UI is built separa
 
 > Required variables you will need:
 > - `PROJECT_ID=profilebot-474605`
-> - `REGION=us-west2`
+> - `REGION=us-central1`
 > - Artifact Registry repo name `profile-bot`
-> - Artifact Registry host `us-west2-docker.pkg.dev`
+> - Artifact Registry host `us-central1-docker.pkg.dev`
 > - Backend image tag `profile-bot-api:latest`
 > - Cloud Storage bucket name `profile-bot-chroma` (vector store)
 > - Optional documents bucket `profile_bot_docs`
@@ -30,9 +30,9 @@ Deploy the Profile Bot backend to Google Cloud Run. The React UI is built separa
 
 ```bash
 export PROJECT_ID=profilebot-474605
-export REGION=us-west2
+export REGION=us-central1
 export REPO=profile-bot
-export AR_HOST=us-west2-docker.pkg.dev
+export AR_HOST=us-central1-docker.pkg.dev
 export BACKEND_IMAGE=${AR_HOST}/${PROJECT_ID}/${REPO}/profile-bot-api:latest
 
 gcloud auth configure-docker ${AR_HOST}
@@ -109,3 +109,34 @@ gsutil -m rsync -r dist gs://profile-bot-ui
 - Move secrets (e.g. `OPENAI_API_KEY`) to Secret Manager and mount them as env vars.
 - Store documents in a dedicated bucket and mount it for both the ingestion job and the backend (`DOCUMENTS_PATH`).
 - Set up HTTPS load balancing (Cloud Run service can sit behind Cloud Endpoints or Cloud Armor if needed).
+
+## 9. Monitoring Bootstrap (Cloud Run, us-central1)
+
+Use the monitoring scripts in `ops/monitoring/` to provision dashboards and alerts for the backend service.
+
+```bash
+PROJECT_ID=profilebot-474605 \
+REGION=us-central1 \
+SERVICE_NAME=profile-bot-api-usc \
+./ops/monitoring/setup_cloudrun_monitoring.sh
+```
+
+Add uptime monitoring:
+
+```bash
+PROJECT_ID=profilebot-474605 \
+REGION=us-central1 \
+SERVICE_NAME=profile-bot-api-usc \
+./ops/monitoring/setup_uptime_monitoring.sh
+```
+
+Add OpenAI dependency observability:
+
+```bash
+PROJECT_ID=profilebot-474605 \
+REGION=us-central1 \
+SERVICE_NAME=profile-bot-api-usc \
+./ops/monitoring/setup_openai_observability.sh
+```
+
+If you want alert notifications, create a Cloud Monitoring channel first and pass it as `NOTIFICATION_CHANNELS` (comma-separated channel resource names). See `ops/monitoring/README.md` for full instructions.
