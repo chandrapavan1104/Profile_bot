@@ -1,96 +1,93 @@
-# Profile Bot
+# Profile Bot (Monorepo)
 
-Profile Bot is a Retrieval-Augmented Generation (RAG) assistant that demonstrates how to combine FastAPI, LangChain, and a static React UI to answer questions about a curated knowledge base. The project shows the full workflow—from document ingestion and vector storage to deployment on Google Cloud.
+Profile Bot is a portfolio website + RAG assistant in a single repository.
 
-## Architecture overview
+- Frontend: React/Vite app in `frontend/`, deployed to Firebase Hosting through GitHub Actions.
+- Backend: FastAPI + LangChain app in `backend/`, deployed to Cloud Run.
 
-1. **Data ingestion**  
-   `backend/scripts/ingest.py` loads source documents (markdown or text), slices them into overlapping chunks, and creates embeddings with OpenAI’s `text-embedding-3-small` model. The resulting Chroma vector store is written to a local directory and then synced to object storage so it can be reused by the deployed API.
+## Monorepo layout
 
-2. **Question answering**  
-   The FastAPI backend (`backend/app/main.py`) downloads the latest vector store on startup, wraps it in a LangChain `RetrievalQA` chain, and exposes a single `/ask` endpoint. Each request sends the question to GPT-4 along with the retrieved context, producing grounded answers.
+- `frontend/` – portfolio UI, chatbot UI, Firebase config (`firebase.json`, `.firebaserc`)
+- `backend/` – FastAPI API, vector retrieval logic, ingestion script
+- `.github/workflows/` – Firebase Hosting CI/CD workflows
+- `ops/monitoring/` – scripts to bootstrap Cloud Run/OpenAI dashboards and alerts
+- `docs/` – deployment notes and runbooks
 
-3. **Frontend**  
-   The React client under `frontend/` posts user questions to the API and renders responses. The production build is uploaded to a static hosting bucket or CDN, so the UI can be served independently of the backend.
+## Current deployment model
 
-## Repository layout
+1. Frontend deploy (automatic)
+   - Trigger: push to `main`
+   - Workflow: `.github/workflows/firebase-hosting-merge.yml`
+   - Hosting: Firebase project `profilebot-474605`
 
-- `backend/` – FastAPI application, ingestion pipeline, and deployment Dockerfile.  
-- `frontend/` – React single-page app; includes instructions for building and syncing to static hosting.  
-- `docs/` – Deployment notes and runbooks, including Cloud Run guidance in `docs/deployment_gcp.md`.
+2. Frontend preview deploy (automatic)
+   - Trigger: pull request
+   - Workflow: `.github/workflows/firebase-hosting-pull-request.yml`
+
+3. Backend deploy (manual script)
+   - Script: `deploy-cloudrun.sh`
+   - Target: Cloud Run service `profile-bot-api-usc` in `us-central1`
+
+## Required GitHub secret (in this repo)
+
+Set this in `Profile_bot` GitHub repo settings:
+
+- `FIREBASE_SERVICE_ACCOUNT_PROFILEBOT_474605`
+
+Without this, Firebase Hosting workflows will fail.
+
+## Required runtime secrets (GCP Secret Manager)
+
+- `OPENAI_API_KEY`
+- `LANGSMITH_API_KEY` (optional)
+
+Cloud Run is configured to read these via `--set-secrets`.
 
 ## Local development
 
-```bash
-# Backend API
-pip install -r backend/requirements.txt
-export OPENAI_API_KEY=your_openai_key
-uvicorn backend.app.main:app --reload
+### Backend
 
-# Frontend (development server)
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Frontend
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Set `DOCUMENTS_PATH` to a local folder if you want to ingest documents from disk; otherwise point it to a bucket-style URI that your environment can access.
-
-## Rebuilding the vector store
+If needed, set frontend env in `frontend/.env`:
 
 ```bash
-docker build -f backend/Dockerfile -t profile-bot-api-local .
-docker run --rm \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e GITHUB_USERNAME=your-github-handle \
-  -e GITHUB_TOKEN=$GITHUB_TOKEN \
-  -e DOCUMENTS_PATH=gs://your-docs-bucket \
-  -e VECTOR_STORE_PATH=/tmp/data_store \
-  -e VECTOR_STORE_GCS_URI=gs://your-vector-store-bucket \
-  profile-bot-api-local \
-  python scripts/ingest.py
+VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-The same script is executed by a scheduled Cloud Run job in production, ensuring the vector store stays up to date whenever documents change.
+## Backend data ingestion
 
-## Optional GitHub context
+Ingestion script:
 
-When `GITHUB_USERNAME` is set, the ingestion script pulls your GitHub bio, repos, profile README, contribution count, and language breakdown into the vector store. For contribution stats, set `GITHUB_TOKEN` (a GitHub personal access token with read access).
+- `backend/scripts/ingest.py`
 
-## Deploying your own version
+It chunks documents, creates embeddings, and writes a Chroma vector store (then uploads/syncs for production usage).
 
-1. **Containerize the backend**
-   ```bash
-   export PROJECT_ID=<your-project>
-   export REGION=<your-region>
-   export REPO=<artifact-registry-repo>
-   export AR_HOST=<region>-docker.pkg.dev
-   export BACKEND_IMAGE=${AR_HOST}/${PROJECT_ID}/${REPO}/profile-bot-api:latest
+## Monitoring setup (Cloud Run + OpenAI)
 
-   docker buildx build --platform linux/amd64 -f backend/Dockerfile -t ${BACKEND_IMAGE} .
-   docker push ${BACKEND_IMAGE}
-   ```
+Bootstrap scripts:
 
-2. **Create an ingestion job** (see `docs/deployment_gcp.md` for the full command set). The job should mount/read your documents, write the Chroma files to `/tmp/data_store`, and upload them to a persistent bucket.
+- `ops/monitoring/setup_cloudrun_monitoring.sh`
+- `ops/monitoring/setup_uptime_monitoring.sh`
+- `ops/monitoring/setup_openai_observability.sh`
 
-3. **Deploy the API to Cloud Run**
-   ```bash
-   gcloud run deploy profile-bot-api \
-     --image ${BACKEND_IMAGE} \
-     --region ${REGION} \
-     --allow-unauthenticated \
-     --port 8080 \
-     --timeout 600s \
-     --set-env-vars VECTOR_STORE_PATH=/tmp/data_store,VECTOR_STORE_GCS_URI=gs://your-vector-store-bucket,ALLOWED_ORIGINS=https://your-frontend-host \
-     --set-secrets OPENAI_API_KEY=OPENAI_API_KEY:latest \
-     --service-account <service-account-email>
-   ```
+These create dashboards, log-based metrics, uptime checks, and alert policies.
 
-4. **Host the frontend**
-   ```bash
-   cd frontend
-   npm run build
-   gsutil -m rsync -r dist gs://your-frontend-bucket
-   ```
-   or deploy with your preferred static host/CDN.
+## Notes
 
-By following these steps you can adapt the stack to your own dataset: gather documents, run the ingestion job, deploy the API, and publish the UI—resulting in a fully managed RAG application on the cloud provider of your choice.
+- The old standalone frontend repo (`portfolio-website`) is intentionally left as-is.
+- This repo is now the single source of truth for both frontend and backend.

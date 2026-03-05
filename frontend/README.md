@@ -1,33 +1,43 @@
 # Profile Bot Frontend
 
-This is a lightweight React client that lets you interact with the Profile Bot FastAPI backend. The production bundle is uploaded to the public bucket `gs://profile-bot-ui` and served at https://storage.googleapis.com/profile-bot-ui.
+Frontend for the Profile Bot portfolio website (React + Vite).
 
-## Prerequisites
+This frontend is deployed through GitHub Actions from the monorepo root:
+
+- `.github/workflows/firebase-hosting-merge.yml` (push to `main`)
+- `.github/workflows/firebase-hosting-pull-request.yml` (PR preview)
+
+Firebase config is kept in this directory:
+
+- `frontend/firebase.json`
+- `frontend/.firebaserc`
+
+## Local development
+
+Prerequisites:
 
 - Node.js 18+
-- The FastAPI server running locally on `http://localhost:8000`
-
-## Getting started
+- Backend running on `http://127.0.0.1:8000` (or configure another URL)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env # optional: adjust API targets as needed
+cp .env.example .env
 npm run dev
 ```
 
-Environment variables:
+## Environment variables
 
-- `VITE_API_PROXY_TARGET` (dev only) – backend URL used by the Vite dev proxy. Default: `http://localhost:8000`
-- `VITE_API_BASE_URL` (build time) – absolute backend URL baked into the production bundle. Leave empty to use relative `/ask`.
+- `VITE_API_BASE_URL`
+  - Backend base URL for API requests.
+  - Example: `http://127.0.0.1:8000`
 
-The Vite dev server starts on http://localhost:5173 and proxies API calls to the backend at `/ask`, so make sure the FastAPI app is running before you test the UI.
-
-## Build for production
+## Production build
 
 ```bash
+cd frontend
 npm run build
-gsutil -m rsync -r dist gs://profile-bot-ui
+npm run preview
 ```
 
-You can optionally run `npm run preview` to view the static build locally before syncing it to Cloud Storage.
+Publishing to Firebase Hosting is handled by GitHub Actions; no manual `gsutil rsync` is required.
