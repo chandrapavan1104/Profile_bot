@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="160" height="48" viewBox="0 0 160 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cprGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C770F0"/>
+      <stop offset="100%" stop-color="#7E3AF2"/>
+    </linearGradient>
+  </defs>
+  <rect rx="12" ry="12" width="160" height="48" fill="rgba(17, 12, 33, 0.95)" stroke="url(#cprGradient)" stroke-width="2"/>
+  <text x="80" y="31" font-family="Poppins, 'Segoe UI', sans-serif" font-weight="700" font-size="24" text-anchor="middle" fill="url(#cprGradient)">
+    CPR
+  </text>
+</svg>

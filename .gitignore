@@ -7,6 +7,9 @@ __pycache__/
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
+frontend/.firebase/
+frontend/firebase-debug.log
+firebase-debug.log
 mcp.json
 *.pem
 *.key
